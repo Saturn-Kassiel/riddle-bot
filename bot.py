@@ -1,4 +1,4 @@
-import os, sys, json
+import os, json
 import gspread, requests
 from google.oauth2.service_account import Credentials
 
@@ -34,17 +34,30 @@ def main():
     if riddle is None:
         print("Все загадки опубликованы!", flush=True)
         return
+
     print(f"Строка: {row_index}", flush=True)
     print(f"URL картинки: [{image_url}]", flush=True)
     caption = build_caption(riddle, answer)
+
     if image_url:
-        resp = requests.post(f"{BASE_URL}/sendPhoto", json={
-            "chat_id": TELEGRAM_CHAT_ID, "photo": image_url,
-            "caption": caption, "parse_mode": "HTML", "has_spoiler": True})
+        # Скачиваем картинку и отправляем как файл
+        img_resp = requests.get(image_url)
+        print(f"Скачивание картинки: {img_resp.status_code}", flush=True)
+        img_resp.raise_for_status()
+        filename = image_url.split("/")[-1]
+        resp = requests.post(f"{BASE_URL}/sendPhoto", 
+            data={
+                "chat_id":     TELEGRAM_CHAT_ID,
+                "caption":     caption,
+                "parse_mode":  "HTML",
+                "has_spoiler": "true",
+            },
+            files={"photo": (filename, img_resp.content, "image/png")})
     else:
         resp = requests.post(f"{BASE_URL}/sendMessage", json={
             "chat_id": TELEGRAM_CHAT_ID, "text": caption, "parse_mode": "HTML"})
-    print(f"Telegram: {resp.status_code} {resp.text}", flush=True)
+
+    print(f"Telegram: {resp.status_code} {resp.text[:200]}", flush=True)
     resp.raise_for_status()
     sheet.update_cell(row_index, 4, "TRUE")
     print("Готово!", flush=True)
