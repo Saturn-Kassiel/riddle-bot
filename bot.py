@@ -9,6 +9,7 @@ GOOGLE_CREDS_JSON = os.environ["GOOGLE_CREDS_JSON"]
 SHEET_NAME = "Загадки"
 SITE_URL   = "https://saturn-kassiel.github.io/Kids-site/#riddles"
 BASE_URL   = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
+IMAGES_BASE = "https://raw.githubusercontent.com/Saturn-Kassiel/riddle-bot/master/images"
 
 def get_sheet():
     creds = Credentials.from_service_account_info(
@@ -24,38 +25,43 @@ def get_next_riddle(sheet):
             return i, r[0], r[1], r[2]
     return None, None, None, None
 
+def get_image_url(row_index, image_col):
+    if image_col:
+        print(f"🖼 Берём ссылку из таблицы: {image_col}", flush=True)
+        return image_col
+    auto_url = f"{IMAGES_BASE}/Zagadka{row_index - 1}.png"
+    print(f"🖼 Вычисляем ссылку автоматически: {auto_url}", flush=True)
+    return auto_url
+
 def build_caption(riddle, answer):
     link = f'<a href="{SITE_URL}">Жми</a> 🔗 <a href="{SITE_URL}">загадки здесь</a>'
     return f"<b>ЗАГАДКА</b>\n\n{riddle}\n\n<tg-spoiler>💡 Ответ: {answer}</tg-spoiler>\n\n{link}"
 
 def main():
     sheet = get_sheet()
-    row_index, riddle, answer, image_url = get_next_riddle(sheet)
+    row_index, riddle, answer, image_col = get_next_riddle(sheet)
     if riddle is None:
         print("Все загадки опубликованы!", flush=True)
         return
 
     print(f"Строка: {row_index}", flush=True)
-    print(f"URL картинки: [{image_url}]", flush=True)
     caption = build_caption(riddle, answer)
+    image_url = get_image_url(row_index, image_col)
 
-    if image_url:
-        # Скачиваем картинку и отправляем как файл
-        img_resp = requests.get(image_url)
-        print(f"Скачивание картинки: {img_resp.status_code}", flush=True)
-        img_resp.raise_for_status()
-        filename = image_url.split("/")[-1]
-        resp = requests.post(f"{BASE_URL}/sendPhoto", 
-            data={
-                "chat_id":     TELEGRAM_CHAT_ID,
-                "caption":     caption,
-                "parse_mode":  "HTML",
-                "has_spoiler": "true",
-            },
-            files={"photo": (filename, img_resp.content, "image/png")})
-    else:
-        resp = requests.post(f"{BASE_URL}/sendMessage", json={
-            "chat_id": TELEGRAM_CHAT_ID, "text": caption, "parse_mode": "HTML"})
+    # Скачиваем картинку и отправляем как файл
+    img_resp = requests.get(image_url)
+    print(f"Скачивание картинки: {img_resp.status_code}", flush=True)
+    img_resp.raise_for_status()
+    filename = image_url.split("/")[-1]
+
+    resp = requests.post(f"{BASE_URL}/sendPhoto",
+        data={
+            "chat_id":     TELEGRAM_CHAT_ID,
+            "caption":     caption,
+            "parse_mode":  "HTML",
+            "has_spoiler": "true",
+        },
+        files={"photo": (filename, img_resp.content, "image/png")})
 
     print(f"Telegram: {resp.status_code} {resp.text[:200]}", flush=True)
     resp.raise_for_status()
