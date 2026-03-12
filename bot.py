@@ -4,24 +4,21 @@ import gspread
 import requests
 from google.oauth2.service_account import Credentials
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-
 TELEGRAM_TOKEN    = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID  = os.environ["TELEGRAM_CHAT_ID"]
 SPREADSHEET_ID    = os.environ["SPREADSHEET_ID"]
 GOOGLE_CREDS_JSON = os.environ["GOOGLE_CREDS_JSON"]
 
 SHEET_NAME = "Загадки"
+SITE_URL   = "https://saturn-kassiel.github.io/Kids-site/#riddles"
 
-SITE_URL = "https://saturn-kassiel.github.io/Kids-site/#riddles"
+COL_RIDDLE = 1
+COL_ANSWER = 2
+COL_IMAGE  = 3
+COL_POSTED = 4
 
-# Колонки (1-based)
-COL_RIDDLE  = 1   # A — текст загадки
-COL_ANSWER  = 2   # B — ответ
-COL_IMAGE   = 3   # C — ссылка на картинку (необязательно)
-COL_POSTED  = 4   # D — статус (TRUE / пусто)
+BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
-# ─── Google Sheets ─────────────────────────────────────────────────────────────
 
 def get_sheet():
     creds_dict = json.loads(GOOGLE_CREDS_JSON)
@@ -41,19 +38,13 @@ def get_next_riddle(sheet):
         answer = row[COL_ANSWER - 1].strip() if len(row) > COL_ANSWER - 1 else ""
         image  = row[COL_IMAGE - 1].strip()  if len(row) > COL_IMAGE - 1  else ""
         posted = row[COL_POSTED - 1].strip() if len(row) > COL_POSTED - 1 else ""
-
         if riddle and answer and posted.upper() != "TRUE":
             return i, riddle, answer, image
-
     return None, None, None, None
 
 
 def mark_posted(sheet, row_index):
     sheet.update_cell(row_index, COL_POSTED, "TRUE")
-
-# ─── Telegram ──────────────────────────────────────────────────────────────────
-
-BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
 
 def build_caption(riddle: str, answer: str) -> str:
@@ -67,27 +58,28 @@ def build_caption(riddle: str, answer: str) -> str:
 
 
 def send_photo_with_spoiler(image_url: str, caption: str):
-    resp = requests.post(f"{BASE_URL}/sendPhoto", data={
+    resp = requests.post(f"{BASE_URL}/sendPhoto", json={
         "chat_id":     TELEGRAM_CHAT_ID,
         "photo":       image_url,
         "caption":     caption,
         "parse_mode":  "HTML",
-        "has_spoiler": "true",
+        "has_spoiler": True,
     })
+    print("Telegram response:", resp.status_code, resp.text)
     resp.raise_for_status()
     return resp.json()
 
 
 def send_message(text: str):
-    resp = requests.post(f"{BASE_URL}/sendMessage", data={
+    resp = requests.post(f"{BASE_URL}/sendMessage", json={
         "chat_id":    TELEGRAM_CHAT_ID,
         "text":       text,
         "parse_mode": "HTML",
     })
+    print("Telegram response:", resp.status_code, resp.text)
     resp.raise_for_status()
     return resp.json()
 
-# ─── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     sheet = get_sheet()
@@ -98,8 +90,10 @@ def main():
         return
 
     print(f"📌 Публикую строку {row_index}: {riddle[:50]}...")
+    print(f"🖼 Картинка: {image_url}")
 
     caption = build_caption(riddle, answer)
+    print(f"📝 Длина caption: {len(caption)} символов")
 
     if image_url:
         send_photo_with_spoiler(image_url, caption)
