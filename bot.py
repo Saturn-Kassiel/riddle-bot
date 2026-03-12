@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import gspread
 import requests
@@ -58,6 +59,8 @@ def build_caption(riddle: str, answer: str) -> str:
 
 
 def send_photo_with_spoiler(image_url: str, caption: str):
+    print(f"🖼 Отправляю фото: {image_url}", flush=True)
+    print(f"📝 Длина caption: {len(caption)} символов", flush=True)
     resp = requests.post(f"{BASE_URL}/sendPhoto", json={
         "chat_id":     TELEGRAM_CHAT_ID,
         "photo":       image_url,
@@ -65,18 +68,19 @@ def send_photo_with_spoiler(image_url: str, caption: str):
         "parse_mode":  "HTML",
         "has_spoiler": True,
     })
-    print("Telegram response:", resp.status_code, resp.text)
+    print(f"📬 Telegram ответ: {resp.status_code} {resp.text}", flush=True)
     resp.raise_for_status()
     return resp.json()
 
 
 def send_message(text: str):
+    print(f"📝 Отправляю текст, длина: {len(text)}", flush=True)
     resp = requests.post(f"{BASE_URL}/sendMessage", json={
         "chat_id":    TELEGRAM_CHAT_ID,
         "text":       text,
         "parse_mode": "HTML",
     })
-    print("Telegram response:", resp.status_code, resp.text)
+    print(f"📬 Telegram ответ: {resp.status_code} {resp.text}", flush=True)
     resp.raise_for_status()
     return resp.json()
 
@@ -86,14 +90,15 @@ def main():
     row_index, riddle, answer, image_url = get_next_riddle(sheet)
 
     if riddle is None:
-        print("✅ Все загадки уже опубликованы!")
+        print("✅ Все загадки уже опубликованы!", flush=True)
         return
 
-    print(f"📌 Публикую строку {row_index}: {riddle[:50]}...")
-    print(f"🖼 Картинка: {image_url}")
+    print(f"📌 Публикую строку {row_index}", flush=True)
+    print(f"📖 Загадка: {riddle[:60]}", flush=True)
+    print(f"💡 Ответ: {answer}", flush=True)
+    print(f"🖼 URL: {image_url}", flush=True)
 
     caption = build_caption(riddle, answer)
-    print(f"📝 Длина caption: {len(caption)} символов")
 
     if image_url:
         send_photo_with_spoiler(image_url, caption)
@@ -101,7 +106,7 @@ def main():
         send_message(caption)
 
     mark_posted(sheet, row_index)
-    print("✅ Опубликовано и отмечено в таблице.")
+    print("✅ Готово!", flush=True)
 
 
 if __name__ == "__main__":
