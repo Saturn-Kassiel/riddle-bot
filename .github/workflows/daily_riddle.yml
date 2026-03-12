@@ -2,16 +2,12 @@ name: Post Daily Riddle
 
 on:
   schedule:
-    # Каждый день в 09:00 по московскому времени (UTC+3 → UTC 06:00)
     - cron: "0 6 * * *"
-
-  # Позволяет запустить вручную из GitHub → Actions → Run workflow
   workflow_dispatch:
 
 jobs:
   post-riddle:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -26,9 +22,8 @@ jobs:
 
       - name: Run bot
         env:
-          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
-          
-          SPREADSHEET_ID:    ${{ secrets.SPREADSHEET_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           GOOGLE_CREDS_JSON: ${{ secrets.GOOGLE_CREDS_JSON }}
         run: python bot.py
